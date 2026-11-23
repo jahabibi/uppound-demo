@@ -1,14 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-const API_URL = '/api';
-
 const PetCard = ({ pet }) => {
   return (
     <div className="pet-card">
       <div className="pet-image">
-        <img 
-            src={`${pet.image_url.replace(/^\/images\//, '')}`}
+        <img
+            src={pet.image_url || '/logo192.png'}
             alt={pet.name} 
             onError={(e) => {
                 console.error(`Failed to load: ${e.target.src}`);

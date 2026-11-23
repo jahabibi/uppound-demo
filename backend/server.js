@@ -52,24 +52,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-const imagesPath = path.join(__dirname, 'images');
-console.log('Images directory path:', imagesPath);
-console.log('Files in images directory:', fs.readdirSync(imagesPath));
-try {
-  if (!fs.existsSync(imagesPath)) {
-    console.log('Images directory does not exist, creating it');
-    fs.mkdirSync(imagesPath, { recursive: true });
-  } else {
-    console.log('Images directory exists');
-    const files = fs.readdirSync(imagesPath);
-    console.log('Files in images directory:', files);
-  }
-} catch (err) {
-  console.error('Error with images directory:', err);
-}
-
-app.use('/api/images', express.static(imagesPath));
-
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     const dir = path.join(__dirname, 'uploads');
@@ -117,6 +99,33 @@ const getPetsHandler = async (req, res) => {
 
 app.get('/api/pets', getPetsHandler);
 app.get('/pets', getPetsHandler);
+
+// Must be registered before /api/pets/:id, or ":id" captures "search".
+app.get('/api/pets/search', async (req, res) => {
+  try {
+    const { query, species } = req.query;
+
+    let sqlQuery = 'SELECT * FROM pets WHERE 1=1';
+    const params = [];
+
+    if (query) {
+      params.push(`%${query}%`);
+      sqlQuery += ` AND (name ILIKE $${params.length} OR breed ILIKE $${params.length})`;
+    }
+
+    if (species) {
+      params.push(species);
+      sqlQuery += ` AND species = $${params.length}`;
+    }
+
+    const result = await pool.query(sqlQuery, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error searching pets:', err);
+    res.status(500).json({ error: 'Failed to search pets' });
+  }
+});
+
 app.get('/api/pets/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -186,31 +195,6 @@ app.get('/api/adoptions', async (req, res) => {
   } catch (err) {
     console.error('Error fetching adoptions:', err);
     res.status(500).json({ error: 'Failed to fetch adoption applications' });
-  }
-});
-
-app.get('/api/pets/search', async (req, res) => {
-  try {
-    const { query, species } = req.query;
-    
-    let sqlQuery = 'SELECT * FROM pets WHERE 1=1';
-    const params = [];
-    
-    if (query) {
-      params.push(`%${query}%`);
-      sqlQuery += ` AND (name ILIKE $${params.length} OR breed ILIKE $${params.length})`;
-    }
-    
-    if (species) {
-      params.push(species);
-      sqlQuery += ` AND species = $${params.length}`;
-    }
-    
-    const result = await pool.query(sqlQuery, params);
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Error searching pets:', err);
-    res.status(500).json({ error: 'Failed to search pets' });
   }
 });
 
